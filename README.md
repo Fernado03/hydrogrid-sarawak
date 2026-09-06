@@ -3,6 +3,8 @@
 
 HydroGrid Sarawak is an end-to-end telemetry analytics, predictive forecasting, and autonomous grid dispatch platform designed for Sarawak's renewable hydropower and green hydrogen ecosystem (Bakun Dam, Murum Dam, Batang Ai, and Bintulu H2 Hub).
 
+![HydroGrid Sarawak Dashboard Preview](docs/assets/dashboard_preview.png)
+
 ---
 
 ## System Architecture
