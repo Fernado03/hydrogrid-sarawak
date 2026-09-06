@@ -1,0 +1,110 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hydrogrid-api
+  namespace: hydrogrid
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: hydrogrid-api
+  template:
+    metadata:
+      labels:
+        app: hydrogrid-api
+    spec:
+      containers:
+        - name: api
+          image: hydrogrid-app:latest
+          imagePullPolicy: IfNotPresent
+          command: ["uvicorn", "hydrogrid.serving.app:app", "--host", "0.0.0.0", "--port", "8000"]
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: hydrogrid-config
+            - secretRef:
+                name: hydrogrid-secrets
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "1000m"
+          readinessProbe:
+            httpGet:
+              path: /docs
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hydrogrid-api
+  namespace: hydrogrid
+spec:
+  selector:
+    app: hydrogrid-api
+  ports:
+    - protocol: TCP
+      port: 8000
+      targetPort: 8000
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hydrogrid-ui
+  namespace: hydrogrid
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hydrogrid-ui
+  template:
+    metadata:
+      labels:
+        app: hydrogrid-ui
+    spec:
+      containers:
+        - name: ui
+          image: hydrogrid-app:latest
+          imagePullPolicy: IfNotPresent
+          command: ["streamlit", "run", "src/hydrogrid/ui/dashboard.py", "--server.port=8501", "--server.address=0.0.0.0"]
+          ports:
+            - containerPort: 8501
+          envFrom:
+            - configMapRef:
+                name: hydrogrid-config
+            - secretRef:
+                name: hydrogrid-secrets
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          readinessProbe:
+            httpGet:
+              path: /_stcore/health
+              port: 8501
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hydrogrid-ui
+  namespace: hydrogrid
+spec:
+  selector:
+    app: hydrogrid-ui
+  ports:
+    - protocol: TCP
+      port: 8501
+      targetPort: 8501
+      nodePort: 30501
+  type: NodePort

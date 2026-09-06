@@ -1,0 +1,111 @@
+services:
+  # ----------------------------------------------------
+  # 1. Operational OLTP Warehouse
+  # ----------------------------------------------------
+  db:
+    image: postgres:16-alpine
+    container_name: hydrogrid_db
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-hydrogrid_warehouse}
+      POSTGRES_USER: ${POSTGRES_USER:-hydrogrid}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-hydrogrid} -d ${POSTGRES_DB:-hydrogrid_warehouse}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ----------------------------------------------------
+  # 2. FastAPI Inflow & Anomaly REST API
+  # ----------------------------------------------------
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hydrogrid_api
+    restart: on-failure
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./src:/app/src
+      - ./models:/app/models
+    environment:
+      HYDROGRID_ENV: production
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-hydrogrid_warehouse}
+      POSTGRES_USER: ${POSTGRES_USER:-hydrogrid}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
+      LLM_BASE_URL: ${LLM_BASE_URL}
+      LLM_API_KEY: ${LLM_API_KEY}
+    ports:
+      - "8000:8000"
+    command: ["uvicorn", "hydrogrid.serving.app:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+  # ----------------------------------------------------
+  # 3. Streamlit Command Center & Multi-Agent Interface
+  # ----------------------------------------------------
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hydrogrid_dashboard
+    restart: on-failure
+    depends_on:
+      db:
+        condition: service_healthy
+      api:
+        condition: service_started
+    environment:
+      HYDROGRID_ENV: production
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-hydrogrid_warehouse}
+      POSTGRES_USER: ${POSTGRES_USER:-hydrogrid}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
+      LLM_BASE_URL: ${LLM_BASE_URL}
+      LLM_API_KEY: ${LLM_API_KEY}
+    ports:
+      - "8501:8501"
+    command: ["streamlit", "run", "src/hydrogrid/ui/dashboard.py", "--server.port=8501", "--server.address=0.0.0.0"]
+
+  # ----------------------------------------------------
+  # 4. n8n Workflow Orchestration Engine
+  # ----------------------------------------------------
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: hydrogrid_n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - NODE_ENV=production
+      - WEBHOOK_URL=http://localhost:5678/
+      - GENERIC_TIMEZONE=Asia/Kuching
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=db
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=${POSTGRES_DB:-hydrogrid_warehouse}
+      - DB_POSTGRESDB_USER=${POSTGRES_USER:-hydrogrid}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD:-change_me}
+      - DB_POSTGRESDB_SCHEMA=public
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+    driver: local
+  n8n_data:
+    driver: local

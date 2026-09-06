@@ -1,0 +1,35 @@
+# Secrets
+.env
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+*.zip
+*.db
+*.sqlite
+*.sqlite3
+mlruns/
+
+# Data
+data/raw/*
+data/staged/*
+data/warehouse/*
+
+# Keep folder structure
+!data/raw/.gitkeep
+!data/staged/.gitkeep
+!data/warehouse/.gitkeep
+
+# Notebooks
+.ipynb_checkpoints/
+
+# BI artifacts
+powerbi/*.pbix
+
+# IDE
+.idea/
+.vscode/

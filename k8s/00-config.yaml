@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: hydrogrid
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hydrogrid-config
+  namespace: hydrogrid
+data:
+  POSTGRES_HOST: "hydrogrid-db"
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: "hydrogrid_warehouse"
+  HYDROGRID_ENV: "production"
+  GENERIC_TIMEZONE: "Asia/Kuching"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: hydrogrid-secrets
+  namespace: hydrogrid
+type: Opaque
+stringData:
+  POSTGRES_USER: "hydrogrid"
+  POSTGRES_PASSWORD: "change_me"
+  LLM_BASE_URL: "https://api.hcnsec.cn/v1"
+  LLM_API_KEY: "change_me"
